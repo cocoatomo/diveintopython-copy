@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding="utf-8"?>
+<property name="version" value="&fileversion;"/>
+<property name="project" value="diveintopython"/>
+<property name="xml" value="xml"/>
+<property name="xsl" value="&common;/xsl"/>
+<property name="py" value="&common;/py"/>
+<property name="css" value="&common;/css"/>
+<property name="dist" value="dist"/>
+<property name="tmp" value="${dist}/tmp"/>
+<property name="download" value="${dist}/download"/>
+<property name="html" value="${dist}/html"/>
+<property name="htmlflat" value="${dist}/htmlflat"/>
+<property name="word" value="${dist}/doc"/>
+<property name="htmlhelp" value="${dist}/help"/>
+<property name="htmlhelppathtoroot" value="../.."/>
+<property name="pdf" value="${dist}/pdf"/>
+<property name="text" value="${dist}/txt"/>
+<property name="images" value="&common;/images"/>
+<property name="crimson" value="&common;/lib/crimson.jar"/>
+<property name="saxon" value="&common;/lib/saxon.jar;${crimson}"/>
+<property name="encoding" value="iso-8859-1"/>
+<property name="standardargs" value=""/>
+
+<fileset id="py" dir="${py}">
+  <patternset id="patternpy">
+    <include name="**/*.py"/>
+    <include name="**/*.xml"/>
+    <include name="**/*.dtd"/>
+    <include name="LICENSE.txt"/>
+    <include name="**/*.en"/>
+  </patternset>
+</fileset>
+
+<!-- administrative targets -->
+<target name="init">
+  <condition property="python" value="python">
+    <os family="unix"/>
+  </condition>
+  <condition property="python" value="python">
+    <os family="windows"/>
+  </condition>
+
+  <condition property="htmldoc" value="htmldoc">
+    <os family="unix"/>
+  </condition>
+  <condition property="htmldoc" value="ghtmldoc">
+    <os family="windows"/>
+  </condition>
+
+  <condition property="illegalmonopoly">
+    <os family="windows"/>
+  </condition>
+
+  <tstamp/>
+</target>
+
+<target name="prepare" depends="init">
+  <mkdir dir="${dist}"/>
+  <mkdir dir="${tmp}"/>
+  <mkdir dir="${download}"/>
+  <mkdir dir="${html}"/>
+  <mkdir dir="${htmlflat}"/>
+  <mkdir dir="${word}"/>
+<!--
+  <mkdir dir="${htmlhelp}"/>
+-->
+  <mkdir dir="${pdf}"/>
+  <mkdir dir="${text}"/>
+</target>
+
+<target name="cleandist" depends="init">
+  <delete dir="${dist}"/>
+</target>
+
+<target name="cleanpy" depends="init">
+  <delete>
+    <fileset dir="${py}">
+      <patternset>
+        <include name="**/*.pyc"/>
+        <include name="**/*.log"/>
+      </patternset>
+    </fileset>
+  </delete>
+</target>
+
+<target name="cleanbackup" depends="init">
+  <delete>
+    <fileset dir=".">
+      <patternset>
+        <include name="**/*.xml~"/>
+      </patternset>
+    </fileset>
+  </delete>
+</target>
+
+<target name="clean" depends="cleandist,cleanpy,cleanbackup"/>
+
+<!-- internal utility targets used by other targets -->
+<target name="copycss" depends="prepare">
+  <copy todir="${target}">
+    <fileset dir="${css}">
+      <include name="*.css"/>
+    </fileset>
+  </copy>
+</target>
+
+<target name="copyimages" depends="prepare">
+  <copy todir="${target}">
+    <fileset dir="${images}">
+      <include name="**/*.${ext}"/>
+    </fileset>
+  </copy>
+</target>
+
+<target name="colorize" depends="init">
+  <exec executable="${python}" failonerror="yes">
+    <arg line="${py}/colorize.py ${target} ${fonts}"/>
+  </exec>
+</target>
+
+<!--
+<target name="uncurly" depends="init">
+  <exec executable="${python}" failonerror="yes">
+    <arg line="${py}/uncurly.py ${target}"/>
+  </exec>
+</target>
+-->
+
+<target name="autosize" depends="init">
+  <exec executable="${python}">
+    <arg path="${py}/autosize.py"/>
+    <arg value="${html}"/>
+    <arg value="${download}"/>
+  </exec>
+</target>
+
+<!-- main targets -->
+<target name="index" depends="prepare,validateindex">
+  <antcall target="copycss">
+    <param name="target" value="${html}"/>
+  </antcall>
+
+  <java classname="com.icl.saxon.StyleSheet" fork="yes" failonerror="yes">
+    <arg line="${standardargs} -o ${html}/index.html ${xml}/index.xml ${xsl}/index.xsl"/>
+    <classpath>
+      <pathelement path="${saxon}"/>
+    </classpath>
+  </java>
+
+</target>
+
+<target name="rss" depends="prepare">
+  <java classname="com.icl.saxon.StyleSheet" fork="yes" failonerror="yes">
+    <arg line="${standardargs} -o ${html}/history.xml ${xml}/${project}.xml ${xsl}/rss.xsl"/>
+    <classpath>
+      <pathelement path="${saxon}"/>
+    </classpath>
+  </java>
+</target>
+
+<target name="html" depends="prepare,validatebook">
+  <antcall target="copycss">
+    <param name="target" value="${html}"/>
+  </antcall>
+
+  <antcall target="copyimages">
+    <param name="target" value="${html}/images"/>
+    <param name="ext" value="png"/>
+  </antcall>
+
+  <java classname="com.icl.saxon.StyleSheet" fork="yes" failonerror="yes">
+<!--    <arg line="${standardargs} -ds ${xml}/${project}.xml ${xsl}/html.xsl"/>-->
+    <arg line="${standardargs} ${xml}/${project}.xml ${xsl}/html.xsl"/>
+    <classpath>
+      <pathelement path="${saxon}"/>
+    </classpath>
+  </java>
+
+  <antcall target="postprocess">
+    <param name="target" value="${html}"/>
+  </antcall>
+
+  <exec executable="${python}" failonerror="yes">
+    <arg line="${py}/colorize.py ${html}"/>
+  </exec>
+</target>
+
+<target name="dialect" depends="prepare">
+  <exec executable="${python}" failonerror="yes">
+    <arg line="${py}/builddialectexamples.py ${html}/native_data_types/lists.html"/>
+  </exec>
+</target>
+
+<target name="htmlflat" depends="prepare,validatebook">
+  <antcall target="copycss">
+    <param name="target" value="${htmlflat}"/>
+  </antcall>
+
+  <antcall target="copyimages">
+    <param name="target" value="${htmlflat}/images"/>
+    <param name="ext" value="png"/>
+  </antcall>
+
+  <java classname="com.icl.saxon.StyleSheet" fork="yes" failonerror="yes">
+    <arg line="${standardargs} -o ${htmlflat}/${project}${lang}.html ${xml}/${project}.xml ${xsl}/htmlsingle.xsl"/>
+    <classpath>
+      <pathelement path="${saxon}"/>
+    </classpath>
+  </java>
+
+  <antcall target="postprocess">
+    <param name="target" value="${htmlflat}"/>
+  </antcall>
+
+  <antcall target="colorize">
+    <param name="target" value="${htmlflat}"/>
+    <param name="fonts" value="0"/>
+  </antcall>
+
+</target>
+
+<target name="word" if="illegalmonopoly" depends="prepare,validatebook">
+  <java classname="com.icl.saxon.StyleSheet" fork="yes" failonerror="yes">
+    <arg line="${standardargs} -o ${word}/${project}.html ${xml}/${project}.xml ${xsl}/word2000.xsl"/>
+    <classpath>
+      <pathelement path="${saxon}"/>
+    </classpath>
+  </java>
+
+  <antcall target="postprocess">
+    <param name="target" value="${word}"/>
+  </antcall>
+
+  <antcall target="colorize">
+    <param name="target" value="${word}"/>
+    <param name="fonts" value="1"/>
+  </antcall>
+
+  <exec executable="${python}" failonerror="yes">
+    <arg line="${py}/makerealworddoc.py ${word}/${project}.html ${word}/${project}${lang}.doc"/>
+  </exec>
+</target>
+
+<target name="pdf" depends="prepare,validatebook">
+  <antcall target="copyimages">
+    <param name="target" value="${pdf}/images"/>
+    <param name="ext" value="png"/>
+  </antcall>
+
+  <java classname="com.icl.saxon.StyleSheet" fork="yes" failonerror="yes">
+    <arg line="${standardargs} -o ${pdf}/${project}.html ${xml}/${project}.xml ${xsl}/pdf.xsl"/>
+    <classpath>
+      <pathelement path="${saxon}"/>
+    </classpath>
+  </java>
+
+  <antcall target="postprocess">
+    <param name="target" value="${pdf}"/>
+  </antcall>
+
+  <antcall target="colorize">
+    <param name="target" value="${pdf}"/>
+    <param name="fonts" value="1"/>
+  </antcall>
+
+<!--
+  <antcall target="uncurly">
+    <param name="target" value="${pdf}/${project}.html"/>
+  </antcall>
+-->
+
+  <exec executable="${htmldoc}" failonerror="no">
+    <arg line='-t pdf12 -f ${pdf}/${project}${lang}.pdf --book --toclevels 2 --no-numbered --toctitle "Table of Contents" --no-title --linkstyle plain --size Universal --left 0.50in --right 0.50in --top 0.50in --bottom 0.50in --header ... --footer t.1 --tocheader ... --tocfooter t.i --portrait --color --no-pscommands --compression=1 --jpeg=0 --fontsize 11.0 --fontspacing 1.2 --headingfont Helvetica --bodyfont Times --headfootsize 11.0 --headfootfont Helvetica --charset 8859-1 --pagemode outline --pagelayout single --firstpage c1 --pageeffect none --pageduration 10 --effectduration 1.0 --no-encryption --permissions all  --owner-password ""  --user-password "" --browserwidth 680 ${pdf}/${project}.html'/>
+  </exec>
+</target>
+
+<target name="text" depends="prepare,validatebook">
+  <java classname="com.icl.saxon.StyleSheet" fork="yes" failonerror="yes">
+    <arg line="${standardargs} -o ${text}/${project}.html ${xml}/${project}.xml ${xsl}/text.xsl"/>
+    <classpath>
+      <pathelement path="${saxon}"/>
+    </classpath>
+  </java>
+
+  <antcall target="postprocess">
+    <param name="target" value="${text}"/>
+  </antcall>
+
+<!--
+  <antcall target="uncurly">
+    <param name="target" value="${text}/${project}.html"/>
+  </antcall>
+-->
+
+  <exec executable="w3m" output="${text}/${project}${lang}.txt" failonerror="yes">
+    <arg line="-dump ${text}/${project}.html"/>
+  </exec>
+</target>
+
+<!--
+<target name="htmlhelp" if="illegalmonopoly" depends="prepare,validatebook">
+  <antcall target="copyimages">
+    <param name="target" value="${htmlhelp}/images"/>
+    <param name="ext" value="jpg"/>
+  </antcall>
+
+    
+  <java dir="${htmlhelp}" classname="com.icl.saxon.StyleSheet" fork="yes" failonerror="yes">
+    <arg line="${standardargs} -o ${project}.html ${htmlhelppathtoroot}/${xml}/${project}.xml ${htmlhelppathtoroot}/${xsl}/htmlhelp.xsl htmlhelp.encoding=${encoding}"/>
+    <classpath>
+      <pathelement path="${saxon}"/>
+    </classpath>
+  </java>
+
+  <antcall target="colorize">
+    <param name="target" value="${htmlhelp}"/>
+    <param name="fonts" value="1"/>
+  </antcall>
+
+  <exec executable="cmd" dir="${htmlhelp}">
+    <arg line="/V:ON /C hhc ${project}.hhp"/>
+  </exec>
+
+  <move file="${htmlhelp}/${project}.chm" tofile="${htmlhelp}/${project}${lang}.chm"/>
+</target>
+-->
+
+<target name="all" depends="init,clean,index,html,rss,htmlflat,word,pdf,text,dialect"/>
+
+<!-- zip targets -->
+<target name="zipclean" depends="init">
+  <delete>
+    <fileset dir="${download}"/>
+  </delete>
+</target>
+
+<target name="zipexamples" depends="prepare">
+  <zip zipfile="${download}/${project}-examples${lang}-${version}.zip">
+    <zipfileset refid="py" prefix="${project}${lang}-${version}/py"/>
+  </zip>
+  <tar longfile="gnu" destfile="${tmp}/${project}-examples${lang}-${version}.tar">
+    <tarfileset dir="${py}" prefix="${project}${lang}-${version}/py" mode="755">
+      <patternset refid="patternpy"/>
+    </tarfileset>
+  </tar>
+  <gzip zipfile="${download}/${project}-examples${lang}-${version}.tgz" src="${tmp}/${project}-examples${lang}-${version}.tar"/>
+</target>
+
+<target name="ziphtml" depends="prepare">
+  <zip zipfile="${download}/${project}-html${lang}-${version}.zip">
+    <zipfileset dir="${html}" prefix="${project}${lang}-${version}/html"/>
+    <zipfileset refid="py" prefix="${project}${lang}-${version}/py"/>
+  </zip>
+  <tar longfile="gnu" destfile="${tmp}/${project}-html${lang}-${version}.tar">
+    <tarfileset dir="${html}" prefix="${project}${lang}-${version}/html"/>
+    <tarfileset dir="${py}" prefix="${project}${lang}-${version}/py" mode="755">
+      <patternset refid="patternpy"/>
+    </tarfileset>
+  </tar>
+  <gzip zipfile="${download}/${project}-html${lang}-${version}.tgz" src="${tmp}/${project}-html${lang}-${version}.tar"/>
+</target>
+
+<target name="ziphtmlflat" depends="prepare">
+  <zip zipfile="${download}/${project}-html-flat${lang}-${version}.zip">
+    <zipfileset dir="${htmlflat}" prefix="${project}${lang}-${version}/html"/>
+    <zipfileset refid="py" prefix="${project}${lang}-${version}/py"/>
+  </zip>
+  <tar longfile="gnu" destfile="${tmp}/${project}-html-flat${lang}-${version}.tar">
+    <tarfileset dir="${htmlflat}" prefix="${project}${lang}-${version}"/>
+    <tarfileset dir="${py}" prefix="${project}${lang}-${version}/py" mode="755">
+      <patternset refid="patternpy"/>
+    </tarfileset>
+  </tar>
+  <gzip zipfile="${download}/${project}-html-flat${lang}-${version}.tgz" src="${tmp}/${project}-html-flat${lang}-${version}.tar"/>
+</target>
+
+<target name="zipword" if="illegalmonopoly" depends="prepare">
+  <zip zipfile="${download}/${project}-word${lang}-${version}.zip">
+    <zipfileset dir="${word}" includes="*.doc" prefix="${project}${lang}-${version}"/>
+    <zipfileset refid="py" prefix="${project}${lang}-${version}/py"/>
+  </zip>
+</target>
+
+<target name="zippdf" depends="prepare">
+  <zip zipfile="${download}/${project}-pdf${lang}-${version}.zip">
+    <zipfileset dir="${pdf}" includes="*.pdf" prefix="${project}${lang}-${version}"/>
+    <zipfileset refid="py" prefix="${project}${lang}-${version}/py"/>
+  </zip>
+  <tar longfile="gnu" destfile="${tmp}/${project}-pdf${lang}-${version}.tar">
+    <tarfileset dir="${pdf}" prefix="${project}${lang}-${version}" includes="*.pdf" mode="755"/>
+    <tarfileset dir="${py}" prefix="${project}${lang}-${version}/py" mode="755">
+      <patternset refid="patternpy"/>
+    </tarfileset>
+  </tar>
+  <gzip zipfile="${download}/${project}-pdf${lang}-${version}.tgz" src="${tmp}/${project}-pdf${lang}-${version}.tar"/>
+</target>
+
+<!--
+<target name="ziphtmlhelp" if="illegalmonopoly" depends="prepare">
+  <zip zipfile="${download}/${project}-help${lang}-${version}.zip">
+    <zipfileset dir="${htmlhelp}" includes="*.chm"/>
+    <zipfileset refid="py" prefix="py"/>
+  </zip>
+</target>
+-->
+
+<target name="ziptext" depends="prepare">
+  <zip zipfile="${download}/${project}-text${lang}-${version}.zip">
+    <zipfileset dir="${text}" includes="*.txt" prefix="${project}${lang}-${version}"/>
+    <zipfileset refid="py" prefix="${project}${lang}-${version}/py"/>
+  </zip>
+  <tar longfile="gnu" destfile="${tmp}/${project}-text${lang}-${version}.tar">
+    <tarfileset dir="${text}" prefix="${project}${lang}-${version}" includes="*.txt"/>
+    <tarfileset dir="${py}" prefix="${project}${lang}-${version}/py" mode="755">
+      <patternset refid="patternpy"/>
+    </tarfileset>
+  </tar>
+  <gzip zipfile="${download}/${project}-text${lang}-${version}.tgz" src="${tmp}/${project}-text${lang}-${version}.tar"/>
+</target>
+
+<target name="zipxml" depends="prepare">
+  <zip zipfile="${download}/${project}-xml${lang}-${version}.zip">
+    <zipfileset dir="." includes="build.xml" prefix="${project}${lang}-${version}"/>
+    <zipfileset dir="." includes="make.*" prefix="${project}${lang}-${version}"/>
+    <zipfileset dir="${xml}" includes="*.xml" prefix="${project}${lang}-${version}/${xml}"/>
+  </zip>
+</target>
+
+<target name="zipcommon" depends="prepare">
+  <zip zipfile="${download}/${project}-common-${version}.zip">
+    <zipfileset dir="&common;" excludes="CVS" prefix="${project}${lang}-${version}/common"/>
+  </zip>
+</target>
+
+<target name="zip" depends="zipclean,cleanpy,zipexamples,ziphtml,ziphtmlflat,zipword,zippdf,ziptext,zipxml,zipcommon,autosize">
+  <delete file="${download}/${project}-html${lang}-${version}.zip"/>
+  <antcall target="ziphtml"/>
+</target>
+
+<!-- other random targets -->
+<target name="unittests" depends="init">
+  <exec executable="${python}" dir="${py}" failonerror="yes">
+    <arg line="regression.py"/>
+  </exec>
+</target>
+
+<target name="validateindex">
+  <xmlvalidate file="${xml}/index.xml" warn="no"/>
+</target>
+
+<target name="validatebook">
+  <xmlvalidate file="${xml}/${project}.xml" warn="no"/>
+</target>
+
+<target name="validate" depends="validateindex,validatebook"/>
+
+<target name="release" depends="clean,unittests,index,all,zip"/>

@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /xmlrpc/
+Disallow: /images/
+Disallow: /download/
+Disallow: /fr/download/
+Disallow: /fr/images/
+Disallow: /cn/download/
+Disallow: /cn/images/
+Disallow: /es/download/
+Disallow: /es/images/
